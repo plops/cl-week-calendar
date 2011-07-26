@@ -225,19 +225,68 @@
 	(list (d 2009 11 11) (d 2009 11 13))
 	(list (d 2009 6 8) (d 2009 6 9))
 	(list (d 2009 12 22) (d 2010 1 20))
-	(list (d 2010 4 2) (list 2010 4 6))
+	(list (d 2010 4 2) (d 2010 4 6))
 	(list (d 2010 5 26) (d 2010 5 28))
 	(list (d 2010 12 21) (d 2011 1 8))
 	(list (d 2011 2 17) (d 2011 2 22))
 	(list (d 2011 4 26) (d 2011 4 28))
 	(list (d 2011 5 3) (d 2011 5 5))))
 
+(defun expand-vacation ()
+ (let ((res nil))
+   (dolist (r *vacation*)
+     (destructuring-bind (start end) r 
+       (setf res 
+	     (append res (loop for i from (absolute-from-gregorian start)
+			    upto (absolute-from-gregorian end) collect i)))))
+   res))
+
+(defun has-iso-53-weeks-p (year)
+ (/= (1+ year) (first 
+		(iso-from-absolute
+		 (absolute-from-iso (make-iso-date :year year :week 53 :day 1))))))
+
+(defun weeks-in-year (year)
+  (if (has-iso-53-weeks-p year) 53 52))
+
+#+nil
+(loop for y in '(2004 2009 2015) collect
+     (weeks-in-year y))
+
+(defun absolute-iso-week (start date)
+  (assert (iso-p date))
+  (assert (iso-p start))
+  (let ((res 0))
+   (destructuring-bind (sy sw sd stype) start
+     (destructuring-bind (y w d type) date
+       (setf res (- w sw))
+       (loop for j from sy below y do
+	    (incf res (weeks-in-year j)))))
+   res))
+
+(absolute-iso-week (make-iso-date :year 2008 :week 7 :day 3) 
+		   (make-iso-date :year 2010 :week 7 :day 3))
+
 (let ((start (absolute-from-gregorian (make-date :year 2008 :month 7 :day 10)))
       (end (absolute-from-gregorian (make-date :year 2011 :month 7 :day 10)))
-      (j 0))
+      (j 0)
+      (bank-abs (mapcar #'absolute-from-gregorian *bank-holidays*))
+      (vac-abs (expand-vacation))
+      (weeks (make-array 157 :initial-element nil)))
   (loop for i from start upto end do
        (let ((iso (iso-from-absolute i)))
 	 (destructuring-bind (y w d type) iso
 	   (unless (or (= 7 d)
-			 (= 6 d))
-	       (format t "~a~%" (list (incf j) iso)))))))
+		       (= 6 d)
+		       (member i bank-abs)
+		       (member i vac-abs))
+	     (push i
+		   (aref weeks (absolute-iso-week (iso-from-absolute start)
+						  iso)))))))
+  (loop for i below (length weeks) do
+       (format t "~a~%" (list (1+ i) 
+			      (mapcar #'(lambda (x) (second (gregorian-from-absolute x)))
+				      (reverse (aref weeks i)))))))
+
+(/ 660 682)
+(/ (* 7 30) 31)
