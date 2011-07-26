@@ -284,9 +284,18 @@
 		   (aref weeks (absolute-iso-week (iso-from-absolute start)
 						  iso)))))))
   (loop for i below (length weeks) do
-       (format t "~a~%" (list (1+ i) 
-			      (mapcar #'(lambda (x) (second (gregorian-from-absolute x)))
-				      (reverse (aref weeks i)))))))
+       (let* ((months (mapcar #'(lambda (x) (second (gregorian-from-absolute x)))
+			      (reverse (aref weeks i))))
+	      (need-split (and months
+			       (some #'(lambda (x) (/= (first months) x)) months))))
+	 (if need-split
+	     (format t "~a~%~a~%" 
+		     (list (1+ i) 
+			   (find (first months) months))
+		     (list (1+ i) 
+			   (find (1+ (first months)) months)))
+	     (format t "~a~%" (list (1+ i) 
+				 months))))))
 
 (/ 660 682)
 (/ (* 7 30) 31)
