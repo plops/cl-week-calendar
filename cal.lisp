@@ -176,3 +176,68 @@
     (make-date :year 2011
 	       :month 7
 	       :day 25)))))
+
+(defun d (y m d)
+  (make-date :year y :month m :day d))
+
+(defparameter *bank-holidays*
+  (list (d 2008 1 1)
+	(d 2008 3 21)
+	(d 2008 3 24)
+	(d 2008 5 5)
+	(d 2008 5 26)
+	(d 2008 8 25)
+	(d 2008 12 25)
+	(d 2008 12 26)
+	
+	(d 2009 1 1)
+	(d 2009 4 10)
+	(d 2009 4 13)
+	(d 2009 5 4)
+	(d 2009 5 25)
+	(d 2009 8 31)
+	(d 2009 12 25)
+	(d 2009 12 28)
+	
+	(d 2010 1 1)
+	(d 2010 4 2)
+	(d 2010 4 5)
+	(d 2010 5 3)
+	(d 2010 5 31)
+	(d 2010 8 30)
+	(d 2010 12 27)
+	(d 2010 12 28)
+	
+	(d 2011 1 3)
+	(d 2011 4 22)
+	(d 2011 4 25)
+	(d 2011 5 2)
+	(d 2011 5 30)
+	(d 2011 8 29)
+	(d 2011 12 26)
+	(d 2011 12 27)))
+
+(defparameter *vacation*
+  (list (list (d 2008 12 22) (d 2009 1 9))
+	(list (d 2009 2 6) (d 2009 2 16))
+	(list (d 2009 5 5) (d 2009 5 8))
+	(list (d 2009 8 17) (d 2009 8 20))
+	(list (d 2009 11 11) (d 2009 11 13))
+	(list (d 2009 6 8) (d 2009 6 9))
+	(list (d 2009 12 22) (d 2010 1 20))
+	(list (d 2010 4 2) (list 2010 4 6))
+	(list (d 2010 5 26) (d 2010 5 28))
+	(list (d 2010 12 21) (d 2011 1 8))
+	(list (d 2011 2 17) (d 2011 2 22))
+	(list (d 2011 4 26) (d 2011 4 28))
+	(list (d 2011 5 3) (d 2011 5 5))))
+
+(let ((start (absolute-from-gregorian (make-date :year 2008 :month 7 :day 10)))
+      (end (absolute-from-gregorian (make-date :year 2011 :month 7 :day 10)))
+      (j 0))
+  (loop for i from start upto end do
+       (let ((iso (iso-from-absolute i)))
+	 (destructuring-bind (y w d type) iso
+	   (unless (or (= 7 d)
+			 (= 6 d))
+	       (format t "~a~%" (list (incf j) iso)))))))
