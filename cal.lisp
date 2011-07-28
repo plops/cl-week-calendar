@@ -377,6 +377,31 @@
 	 (m (extract-month g)))
     (+ m (* 12 (- y 2008)))))
 
+
+
+(defun find-unique-weeks (wks)
+ (let ((res nil)) 
+   (loop for e in (mapcar (lambda (x) (destructuring-bind (w d) x
+				   w)) wks)
+      do
+      (unless (member e res)
+	(push e res)))
+   (reverse res)))
+
+(defun find-week-and-friday (w)
+ (let* ((wu (find-unique-weeks w)))
+   (loop for e in wu collect
+	(destructuring-bind (w d) 
+	    (first (remove-if (lambda (x) (destructuring-bind (w d) x
+				       (/= w e))) w))
+	  (let ((iso (iso-from-absolute d)))
+	    (destructuring-bind (y w d ty) iso
+	      (gregorian-from-absolute (absolute-from-iso (make-iso-date :year y
+									 :week w
+									 :day 5)))))))))
+#+nil
+(find-week-and-friday (aref *workr* 7))
+
 (defun distribute-weeks-into-months (weeks)
   (macrolet ((appendf (place ls)
 	       `(setf ,place (append ,place ,ls))))
@@ -390,13 +415,7 @@
 				  :initial-element nil)))
 	(dotimes (m (length month-res))
 	  (let* ((wks (aref month-res m))
-		 (unique-wks (let ((res nil)) 
-			       (loop for e in (mapcar (lambda (x) (destructuring-bind (w d) x
-							       w)) wks)
-				  do
-				    (unless (member e res)
-				      (push e res)))
-			       (reverse res))))
+		 (unique-wks (find-unique-weeks wks)))
 	    (setf (aref month-wk m)
 		  (loop for e in unique-wks collect
 		       (length (remove-if #'(lambda (x) (destructuring-bind (w d) x
@@ -421,7 +440,6 @@
 \\includepdf{/home/martin/0725/cal/timesheet.pdf}
 \\end{document}
 ")
-
 
 
 #+nil
@@ -468,13 +486,34 @@
 				       x y str) rest)))
 		(format s "~a" *tex-preamble*)
 		(p 240 23 "~2,'0d/~4d" (mod m 12) (+ 2008 (floor m 12)))
-		;; leave 1
-		(p 80 118 "~a" (if (aref hol m)
-				   (aref hol m)
-				   0))
+		(defparameter *workr* workr)
+		;; wk
+		(let ((weeks (elt workr m)))
+		  (loop for i below (length weeks) do
+		       (p (+ 70 (* 32 i)) 70 "~a" (first (last (elt weeks i))))))
+		(defparameter *work* work)
+
+		;; rtd
+		(let ((weeks (elt work m)))
+		  (loop for i below (length weeks) do
+		       (p (+ 70 (* 32 i)) 82 "~a" (* 7 (elt weeks i)))))
+		
+		;; total rtd
+		(p 230 82 "~2d" (elt total-work m))
+		
+
+		;; total leave
+		(p 230 118 "~2d" (elt total-hol m))
+		
+		(let ((weeks (elt hol m)))
+		  (when weeks
+		    (loop for i below (length weeks) do
+			 (p (+ 70 (* 32 i)) 118 "~a" (* 7 i)))))
+		
+		#+nil
 		(loop for j from 10 below 200 by 10 do
-		     (loop for i from 10 below 200 by 10 do
-			  (p i j "~d ~d" i j)))
+		     (loop for i from 10 below 300 by 20 do
+			  (p i j "~d,~d" i j)))
 		(format s "~a" *tex-coda*))
 	       ))
 	(list hol work total-hol total-work
