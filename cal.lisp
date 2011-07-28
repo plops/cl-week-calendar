@@ -403,6 +403,27 @@
 						     (/= w e))) wks))))))
 	(values month-wk month-res)))))
 
+(defparameter *tex-preamble*
+  "\\documentclass[landscape]{scrartcl}
+\\usepackage{pdfpages}
+\\usepackage[absolute]{textpos} 
+
+\\setlength{\\TPHorizModule}{1mm}
+\\setlength{\\TPVertModule}{\\TPHorizModule}
+\\textblockorigin{10mm}{10mm} % start everything near the top-left corner
+\\setlength{\\parindent}{0pt}
+
+\\begin{document}
+")
+
+(defparameter *tex-coda*
+  "
+\\includepdf{/home/martin/0725/cal/timesheet.pdf}
+\\end{document}
+")
+
+
+
 #+nil
 (let ((start (absolute-from-gregorian (make-date :year 2008 :month 7 :day 10)))
       (end (absolute-from-gregorian (make-date :year 2011 :month 7 :day 10)))
@@ -436,9 +457,31 @@
     (multiple-value-bind (work workr)  (distribute-weeks-into-months weeks)
       (let* ((total-work (loop for e across work collect (* 7 (reduce #'+ e))))
 	     (total-hol (loop for e across hol collect (* 7 (reduce #'+ e)))))
+	(loop for m from 7 below (+ 7 (* 12 3)) do
+	     (with-open-file (s (format nil "/dev/shm/o~3,'0d.tex" m)
+				:direction :output
+				:if-does-not-exist :create
+				:if-exists :supersede)
+	       (macrolet ((p (x y str &rest rest)
+			    `(format s ,(format nil "\\begin{textblock}{2}(~d,~d)~a\\end{textblock}"
+						x y str) ,@rest)))
+		(format s "~a" *tex-preamble*)
+		(format s "\\begin{textblock}{2}(240,23)~2,'0d/~4d\\end{textblock}"
+			(mod m 12)
+			(+ 2008 (floor m 12)))
+		(p 240 23 "~2,'0d/~4d" (mod m 12) (+ 2008 (floor m 12)))
+		;; leave 1
+		(format s "\\begin{textblock}{2}(80,118)~a\\end{textblock}"
+			(if (aref hol m)
+			    (aref hol m)
+			    0))
+		(format s "~a" *tex-coda*))
+	       ))
 	(list hol work total-hol total-work
 	      holr (loop for e across workr collect 
 			(let ((q (first (last e))))
 			  (when q
 			    (destructuring-bind (w d) q
 			      (list w d (gregorian-from-absolute d)))))))))))
+
+
