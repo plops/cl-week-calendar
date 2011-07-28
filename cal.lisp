@@ -507,6 +507,7 @@
 (let ((start (absolute-from-gregorian (make-date :year 2008 :month 7 :day 10)))
       (end (absolute-from-gregorian (make-date :year 2011 :month 7 :day 10)))
       (bank-abs (mapcar #'absolute-from-gregorian *bank-holidays*))
+      (vac-abs (expand-vacation))
       (weeks (make-array 157 :initial-element nil))
       (holweeks (make-array 157 :initial-element nil)))
   ;; put all working days into weeks
@@ -515,11 +516,12 @@
        (let ((iso (iso-from-absolute i)))
 	 (unless (or (weekend-p i) ;; remove weekends, bankholidays and holidays
 		     (member i bank-abs)
-		     (simple-holiday-p i))
+		     (member i vac-abs)
+		     #+nil (simple-holiday-p i))
 	   (push i
 		 (aref weeks (absolute-iso-week (iso-from-absolute start)
 						iso))))
-	 (when (and (simple-holiday-p i)
+	 (when (and (member i vac-abs)
 		    (not (weekend-p i)))
 	   (push i (aref holweeks (absolute-iso-week (iso-from-absolute start)
 						     iso))))))
@@ -539,7 +541,7 @@
 	 (loop for m from (case y 
 			    (2008 7)
 			    (t 1))
-	    below (case y
+	    upto (case y
 		    (2011 7)
 		    (t 12)) 
 	    do
