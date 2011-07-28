@@ -258,6 +258,33 @@
 			    upto (absolute-from-gregorian end) collect i)))))
    res))
 
+
+
+#+nil
+(expand-vacation)
+
+(defun fill-hash-from-list (days)
+  (let ((tbl (make-hash-table)))
+   (dolist (day days)
+     (destructuring-bind (y m d ty) (gregorian-from-absolute day)
+       (destructuring-bind (yy w dd ty2) (iso-from-absolute day)
+	 (if (gethash y tbl)
+	     (incf (gethash y tbl))
+	     (setf (gethash y tbl) 1)))))
+   tbl))
+
+#+nil
+(defparameter *holiday-hash*
+ (fill-hash-from-list (append (mapcar #'absolute-from-gregorian *bank-holidays*
+			       )  (expand-vacation))))
+
+(progn
+  (format t "----~%")
+  (loop for value being the hash-values of *holiday-hash*
+     using (hash-key key)
+     do (format t "~A -> ~A~%" key 
+		(list value (multiple-value-list (decode-key key))))))
+
 (defun has-iso-53-weeks-p (year)
  (/= (1+ year) (first 
 		(iso-from-absolute
@@ -468,6 +495,14 @@
 \\end{document}
 ")
 
+(defparameter *work-package*
+  '(3 5 5 6 5 6 6 6 6 6 6 6
+    5 3 5 6 6 6 6 6 6 6 6 6
+    2 2 4 6  11 11 11 11 4 6 6 6
+    2 2 4 4  11 11 6 11 6 11 6 6))
+
+(length *work-package*)
+
 #+nil
 (let ((start (absolute-from-gregorian (make-date :year 2008 :month 7 :day 10)))
       (end (absolute-from-gregorian (make-date :year 2011 :month 7 :day 10)))
@@ -547,20 +582,24 @@
 				    (get-hash-days dh y m (elt w i)))))
 			 
 			 ;; count months
-			 (p (+ 70 (* 32 i)) 140 "~a" (+ m (* 12 (- y 2008))))
+			 (p (+ 70 (* 32 i)) 140 "~a" (+ -7 m (* 12 (- y 2008))))
+			 
+			 ;; work package
+			 (p (+ 70 (* 32 i)) 74 "~a.~a" (elt *work-package* (+ m (* 12 (- y 2008))))
+			    (1+ (random 3)))
 			 )
 		    ;; total research
-		    (p 230 82 "~a" (* 7 sumw))
+		    (p 250 82 "~a" (* 7 sumw))
 		    ;; total leave
-		    (p 230 118 "~a" (* 7 sumh))
+		    (p 250 118 "~a" (* 7 sumh))
 
 		    ;; full total
-		    (p 230 132 "~a" (* 7 (+ sumw sumh)))
+		    (p 250 132 "~a" (* 7 (+ sumw sumh)))
 
 		    ;; actual/projected
-		    (p 230 143 "~a/~a" 
-		       (+ m (* 12 (- y 2008)))
-		       (+ m (* 12 (- y 2008))))
+		    (p 250 143 "~a/~a" 
+		       (+ -7 m (* 12 (- y 2008)))
+		       (+ -7 m (* 12 (- y 2008))))
 		    )
 		  
 	      ;; rtd
