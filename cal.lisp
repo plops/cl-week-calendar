@@ -447,6 +447,8 @@
 						     (/= w e))) wks))))))
 	(values month-wk month-res)))))
 
+
+
 (defparameter *tex-preamble*
   "\\documentclass[landscape]{scrartcl}
 \\usepackage{pdfpages}
@@ -465,7 +467,6 @@
 \\includepdf{/home/martin/0725/cal/timesheet.pdf}
 \\end{document}
 ")
-
 
 #+nil
 (let ((start (absolute-from-gregorian (make-date :year 2008 :month 7 :day 10)))
@@ -510,24 +511,29 @@
 			       (format nil "\\begin{textblock}{100}(~d,~d)~a\\end{textblock}~%"
 				       x y str) rest)))
 		(format s "~a" *tex-preamble*)
-		(let* ((day (second (first (if (elt workr m)
-					       (elt workr m)
-					       (elt holr m)))))
-		       (g (gregorian-from-absolute day)))
-		  (p 240 23 "~2,'0d/~4d" (extract-month g)
-		     (extract-year g)))
-		(defparameter *workr* workr)
-		;; wk
-		(let ((w (find-week-and-friday (elt workr m))))
-		  (loop for i below (length w) do
-		       (p (+ 63 (* 33 i)) 68 "~d/{\\tiny~a}" 
-			  (first (elt w i))
-			  (print-gregorian (second (elt w i))))))
-		(let ((w (find-week-and-friday (elt holr m))))
-		  (loop for i below (length w) do
-		       (p (+ 63 (* 33 i)) 68 "~d/{\\tiny~a}" 
-			  (first (elt w i))
-			  (print-gregorian (second (elt w i))))))
+		(let* ((dayd (second (first (if (elt workr m)
+						(elt workr m)
+						(elt holr m)))))
+		       (day (if dayd dayd (make-date :year (+ 2008 (floor m 12))
+						     :month (if (= 0 (mod m 12))
+								12
+								(mod m 12))))))
+		  (let ((g (gregorian-from-absolute day)))
+		   (p 240 23 "~2,'0d/~4d ~d" 
+		      (extract-month g)
+		      (extract-year g)
+		      day)
+		   (defparameter *workr* workr)
+		   ;; wk
+		   (let ((w (get-weeks-of-month day)))
+		     (loop for i below (length w) do
+			  (p (+ 63 (* 33 i)) 68 "~d/~a" 
+			     (elt w i)
+			     (print-gregorian (gregorian-from-absolute
+					       (absolute-from-iso
+						(make-iso-date :year (extract-year g)
+							       :week (elt w i)
+							       :day 5)))))))))
 		(defparameter *work* work)
 
 		;; rtd
@@ -563,17 +569,23 @@
 			    (destructuring-bind (w d) q
 			      (list w d (gregorian-from-absolute d)))))))))))
 
+(defun uniq (ls)
+  (let ((old nil))
+   (remove-if #'null
+	      (loop for e in ls collect
+		   (unless (eq old e) 
+		     (setf old e))))))
 
 (defun get-weeks-of-month (abs-day)
   (let* ((g (gregorian-from-absolute abs-day)))
     (destructuring-bind (y m d ty) g
-      (let ((start (iso-from-absolute
-		    (absolute-from-gregorian (make-date :year y :month m :day 1))))
-	    (end (iso-from-absolute 
-		  (absolute-from-gregorian 
-		   (make-date 
-		    :year y :month m :day (last-day-of-gregorian-month m y))))))
-	(loop for i from (extract-iso-week start) upto (extract-iso-week end) collect
-	     i)))))
+      (let ((start (absolute-from-gregorian (make-date :year y :month m :day 1)))
+	    (end (absolute-from-gregorian 
+		  (make-date :year y :month m :day (last-day-of-gregorian-month m y)))))
+	(uniq
+	 (loop for i from start upto end collect
+	      (extract-iso-week (iso-from-absolute i))))))))
 #+nil
 (get-weeks-of-month (absolute-from-gregorian (make-date :year 2011 :month 7 :day 25)))
+#+nil
+(get-weeks-of-month 733377 )
