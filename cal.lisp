@@ -377,6 +377,32 @@
 	 (m (extract-month g)))
     (+ m (* 12 (- y 2008)))))
 
+(defun distribute-weeks-into-months (weeks)
+  (macrolet ((appendf (place ls)
+	       `(setf ,place (append ,place ,ls))))
+    (let ((month-res (make-array (* 12 4) 
+				 :initial-element nil)))
+      (loop for w below (length weeks) do
+	   (dolist (d (reverse (aref weeks w)))
+	     (appendf (aref month-res (martin-project-month d))
+		      (list (list w d)))))
+      (let ((month-wk (make-array (* 12 4)
+				  :initial-element nil)))
+	(dotimes (m (length month-res))
+	  (let* ((wks (aref month-res m))
+		 (unique-wks (let ((res nil)) 
+			       (loop for e in (mapcar (lambda (x) (destructuring-bind (w d) x
+							       w)) wks)
+				  do
+				    (unless (member e res)
+				      (push e res)))
+			       (reverse res))))
+	    (setf (aref month-wk m)
+		  (loop for e in unique-wks collect
+		       (length (remove-if #'(lambda (x) (destructuring-bind (w d) x
+						     (/= w e))) wks))))))
+	(values month-wk month-res)))))
+
 #+nil
 (let ((start (absolute-from-gregorian (make-date :year 2008 :month 7 :day 10)))
       (end (absolute-from-gregorian (make-date :year 2011 :month 7 :day 10)))
@@ -406,15 +432,13 @@
   (loop for i below (length holweeks) do
        (format t "~a~%" (list (length (reverse (aref weeks i)))
 			      (length (reverse (aref holweeks i))))))
-  
-  
-  (macrolet ((appendf (place ls)
-	       `(setf ,place (append ,place ,ls))))
-   (let ((month-res (make-array (* 12 4) 
-				:initial-element nil)))
-     (loop for w below (length weeks) do
-	  (dolist (d (reverse (aref holweeks w)))
-	    (appendf (aref month-res (martin-project-month d))
-		     (list (list w d)))))
-     month-res)))
-
+  (multiple-value-bind (hol holr) (distribute-weeks-into-months holweeks)
+    (multiple-value-bind (work workr)  (distribute-weeks-into-months weeks)
+      (let* ((total-work (loop for e across work collect (* 7 (reduce #'+ e))))
+	     (total-hol (loop for e across hol collect (* 7 (reduce #'+ e)))))
+	(list hol work total-hol total-work
+	      holr (loop for e across workr collect 
+			(let ((q (first (last e))))
+			  (when q
+			    (destructuring-bind (w d) q
+			      (list w d (gregorian-from-absolute d)))))))))))
