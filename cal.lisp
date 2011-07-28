@@ -496,83 +496,97 @@
   ;; track week number (I guess they want the ISO week) and the gregorian ending day (friday)
   ;; work package ref
   ;; rtd and annual leave
-  ;; total (rtd+annual leave)
-  #+nil
-  (loop for i below (length holweeks) do
-       (format t "~a~%" (list (length (reverse (aref weeks i)))
-			      (length (reverse (aref holweeks i))))))
-  (multiple-value-bind (hol holr) (distribute-weeks-into-months holweeks)
-    (multiple-value-bind (work workr)  (distribute-weeks-into-months weeks)
-      (let* ((total-work (loop for e across work collect (* 7 (reduce #'+ e))))
-	     (total-hol (loop for e across hol collect (* 7 (reduce #'+ e)))))
-	(loop for m from 7 below (+ 7 (* 12 3)) do
-	     (with-open-file (s (format nil "/dev/shm/o~3,'0d.tex" m)
-				:direction :output
-				:if-does-not-exist :create
-				:if-exists :supersede)
-	       (flet ((p (x y str &rest rest)
-			(apply #'format s
-			       (format nil "\\begin{textblock}{100}(~d,~d)~a\\end{textblock}~%"
-				       x y str) rest)))
-		(format s "~a" *tex-preamble*)
-		(let* ((dayd (second (first (if (elt workr m)
-						(elt workr m)
-						(elt holr m)))))
-		       (day (if dayd dayd (make-date :year (+ 2008 (floor m 12))
-						     :month (if (= 0 (mod m 12))
-								12
-								(mod m 12))))))
-		  (let ((g (gregorian-from-absolute day)))
-		   (p 240 23 "~2,'0d/~4d ~d" 
-		      (extract-month g)
-		      (extract-year g)
-		      day)
-		   (defparameter *work* work)
-		   (defparameter *workr* workr)
-		   ;; wk
-		   (let ((w (get-weeks-of-month day)))
-		     (loop for i below (length w) do
-			  (p (+ 63 (* 33 i)) 68 "~d/~a" 
-			     (elt w i)
-			     (print-gregorian (gregorian-from-absolute
-					       (absolute-from-iso
-						(make-iso-date :year (extract-year g)
-							       :week (elt w i)
-							       :day 7)))))))))
+  ;; total (rtd+annual leave)  
 
+  (let* ((dw (fill-hash weeks))
+	 (dh (fill-hash holweeks)))
+    (loop for y from 2008 upto 2011 do
+	 (loop for m from (case y 
+			    (2008 7)
+			    (t 1))
+	    below (case y
+		    (2011 7)
+		    (t 12)) 
+	    do
+	      (with-open-file (s (format nil "/dev/shm/~4d-~2,'0d.tex" y m)
+				 :direction :output
+				 :if-does-not-exist :create
+				 :if-exists :supersede)
+		(flet ((p (x y str &rest rest)
+			 (apply #'format s
+				(format nil "\\begin{textblock}{100}(~d,~d)~a\\end{textblock}~%"
+					x y str) rest)))
+		  (format s "~a" *tex-preamble*)
+		  (p 240 23 "~2,'0d/~4d" m y)
 
-		;; rtd
-		#+nil(let ((weeks (elt work m)))
-		  (loop for i below (length weeks) do
-		       (p (+ 70 (* 32 i)) 82 "~a" (* 7 (elt weeks i)))))
-		
-		;; total rtd
-		#+nil(p 230 82 "~2d" (elt total-work m))
-		
+		  (let ((w (get-weeks-of-month 
+			    (absolute-from-gregorian 
+			     (make-date :year y :month m :day 1))))
+			(sumh 0)
+			(sumw 0))
+		    (loop for i below (length w) do
+			 ;; week and date of its sunday
+			 (p (+ 63 (* 33 i)) 68 "~d/~a" 
+			    (elt w i)
+			    (print-gregorian (gregorian-from-absolute
+					      (absolute-from-iso
+					       (make-iso-date :year y
+							      :week (elt w i)
+							      :day 7)))))
+			 ;; research
+			 (p (+ 70 (* 32 i)) 82 "~a" 
+			    (* 7 (get-hash-days dw y m (elt w i))))
+			 (incf sumw (get-hash-days dw y m (elt w i)))
+			 ;; leave
+			 (p (+ 70 (* 32 i)) 118 "~a"
+			    (* 7 (get-hash-days dh y m (elt w i))))
+			 (incf sumh (get-hash-days dh y m (elt w i)))
+			 ;; total
+			 (p (+ 70 (* 32 i)) 132 "~a"
+			    (* 7 (+ (get-hash-days dw y m (elt w i))
+				    (get-hash-days dh y m (elt w i)))))
+			 
+			 ;; count months
+			 (p (+ 70 (* 32 i)) 140 "~a" (+ m (* 12 (- y 2008))))
+			 )
+		    ;; total research
+		    (p 230 82 "~a" (* 7 sumw))
+		    ;; total leave
+		    (p 230 118 "~a" (* 7 sumh))
 
-		;; total leave
-		#+nil(p 230 118 "~2d" (elt total-hol m))
-		
-		#+nil(let ((weeks (elt hol m)))
-		  (when weeks
-		    (loop for i below (length weeks) do
-			 (p (+ 70 (* 32 i)) 118 "~a" (* 7 i)))))
-		
-		#+nil
-		(loop for j from 10 below 200 by 10 do
-		     (loop for i from 10 below 300 by 20 do
-			  (p i j "~d,~d" i j)))
-		(format s "~a" *tex-coda*))
-	       ))
-	(format t "----~%")
-	(loop for i below (length hol) do
-	     (format t "~d: ~a ~a~%" i (elt work i) (elt hol i)))
-	(list hol work total-hol total-work
-	      holr (loop for e across workr collect 
-			(let ((q (first (last e))))
-			  (when q
-			    (destructuring-bind (w d) q
-			      (list w d (gregorian-from-absolute d)))))))))))
+		    ;; full total
+		    (p 230 132 "~a" (* 7 (+ sumw sumh)))
+
+		    ;; actual/projected
+		    (p 230 143 "~a/~a" 
+		       (+ m (* 12 (- y 2008)))
+		       (+ m (* 12 (- y 2008))))
+		    )
+		  
+	      ;; rtd
+	     
+	      #+nil(let ((weeks (elt work m)))
+		     (loop for i below (length weeks) do
+			 ))
+	     
+	      ;; total rtd
+	      #+nil(p 230 82 "~2d" (elt total-work m))
+	     
+
+	      ;; total leave
+	      #+nil(p 230 118 "~2d" (elt total-hol m))
+	     
+	      #+nil(let ((weeks (elt hol m)))
+		     (when weeks
+		       (loop for i below (length weeks) do
+			    (p (+ 70 (* 32 i)) 118 "~a" (* 7 i)))))
+	     
+	      #+nil
+	      (loop for j from 10 below 200 by 10 do
+		   (loop for i from 10 below 300 by 20 do
+			(p i j "~d,~d" i j)))
+	      (format s "~a" *tex-coda*))
+	    )))))
 
 (defun uniq (ls)
   (let ((old nil))
@@ -613,10 +627,14 @@
 	(dolist (day e)
 	  (destructuring-bind (y m d ty) (gregorian-from-absolute day)
 	    (destructuring-bind (yy w dd ty2) (iso-from-absolute day)
-	      (if (gethash (encode y m w) tbl)
-		  (incf (gethash (encode y m w) tbl))
-		  (setf (gethash (encode y m w) tbl) 1))))))
+	      (if (gethash (encode-key y m w) tbl)
+		  (incf (gethash (encode-key y m w) tbl))
+		  (setf (gethash (encode-key y m w) tbl) 1))))))
    tbl))
+
+(defun get-hash-days (hash y m w)
+  (let ((h (gethash (encode-key y m w) hash)))
+    (if h h 0)))
 
 (defparameter *d* (fill-hash *weeks*))
 (defparameter *dh* (fill-hash *holweeks*))
