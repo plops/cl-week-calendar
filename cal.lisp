@@ -444,7 +444,7 @@
 	    (setf (aref month-wk m)
 		  (loop for e in unique-wks collect
 		       (length (remove-if #'(lambda (x) (destructuring-bind (w d) x
-						     (/= w e))) wks))))))
+					      (/= w e))) wks))))))
 	(values month-wk month-res)))))
 
 
@@ -488,6 +488,10 @@
 		    (not (weekend-p i)))
 	   (push i (aref holweeks (absolute-iso-week (iso-from-absolute start)
 						     iso))))))
+
+  (defparameter *weeks* weeks)
+  (defparameter *holweeks* holweeks)
+
   ;; for each month list all contained weeks (partial weeks will appear in two months)
   ;; track week number (I guess they want the ISO week) and the gregorian ending day (friday)
   ;; work package ref
@@ -523,6 +527,7 @@
 		      (extract-month g)
 		      (extract-year g)
 		      day)
+		   (defparameter *work* work)
 		   (defparameter *workr* workr)
 		   ;; wk
 		   (let ((w (get-weeks-of-month day)))
@@ -534,21 +539,21 @@
 						(make-iso-date :year (extract-year g)
 							       :week (elt w i)
 							       :day 7)))))))))
-		(defparameter *work* work)
+
 
 		;; rtd
-		(let ((weeks (elt work m)))
+		#+nil(let ((weeks (elt work m)))
 		  (loop for i below (length weeks) do
 		       (p (+ 70 (* 32 i)) 82 "~a" (* 7 (elt weeks i)))))
 		
 		;; total rtd
-		(p 230 82 "~2d" (elt total-work m))
+		#+nil(p 230 82 "~2d" (elt total-work m))
 		
 
 		;; total leave
-		(p 230 118 "~2d" (elt total-hol m))
+		#+nil(p 230 118 "~2d" (elt total-hol m))
 		
-		(let ((weeks (elt hol m)))
+		#+nil(let ((weeks (elt hol m)))
 		  (when weeks
 		    (loop for i below (length weeks) do
 			 (p (+ 70 (* 32 i)) 118 "~a" (* 7 i)))))
@@ -582,9 +587,47 @@
       (let ((start (absolute-from-gregorian (make-date :year y :month m :day 1)))
 	    (end (absolute-from-gregorian 
 		  (make-date :year y :month m :day (last-day-of-gregorian-month m y)))))
-	(loop for i from start upto end collect
-	     (list (gregorian-from-absolute i) (extract-iso-week (iso-from-absolute i))))))))
+	(uniq 
+	 (loop for i from start upto end collect
+	      (extract-iso-week (iso-from-absolute i))))))))
 #+nil
 (get-weeks-of-month (absolute-from-gregorian (make-date :year 2009 :month 3 :day 1)))
 #+nil
 (get-weeks-of-month 733377 )
+
+
+(defun encode-key (y m w)
+  (+ (* 10000 y)
+     (* 100 m)
+     w))
+
+(defun decode-key (key)
+  (let* ((y (floor key 10000))
+	 (m (floor (- key (* 10000 y)) 100))
+	 (w (- key (* 10000 y) (* 100 m)))) 
+    (values y m w)))
+
+(defun fill-hash (weeks)
+  (let ((tbl (make-hash-table)))
+   (loop for e across weeks do
+	(dolist (day e)
+	  (destructuring-bind (y m d ty) (gregorian-from-absolute day)
+	    (destructuring-bind (yy w dd ty2) (iso-from-absolute day)
+	      (if (gethash (encode y m w) tbl)
+		  (incf (gethash (encode y m w) tbl))
+		  (setf (gethash (encode y m w) tbl) 1))))))
+   tbl))
+
+(defparameter *d* (fill-hash *weeks*))
+(defparameter *dh* (fill-hash *holweeks*))
+(loop for key being the hash-keys of *d* do
+     (format t "~a~%" key)) 
+
+
+
+(progn
+  (format t "----~%")
+  (loop for value being the hash-values of *dh*
+     using (hash-key key)
+     do (format t "~A -> ~A~%" key 
+		(list value (multiple-value-list (decode-key key))))))
