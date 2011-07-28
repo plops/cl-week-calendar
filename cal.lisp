@@ -533,7 +533,7 @@
 					       (absolute-from-iso
 						(make-iso-date :year (extract-year g)
 							       :week (elt w i)
-							       :day 5)))))))))
+							       :day 7)))))))))
 		(defparameter *work* work)
 
 		;; rtd
@@ -582,10 +582,9 @@
       (let ((start (absolute-from-gregorian (make-date :year y :month m :day 1)))
 	    (end (absolute-from-gregorian 
 		  (make-date :year y :month m :day (last-day-of-gregorian-month m y)))))
-	(uniq
-	 (loop for i from start upto end collect
-	      (extract-iso-week (iso-from-absolute i))))))))
+	(loop for i from start upto end collect
+	     (list (gregorian-from-absolute i) (extract-iso-week (iso-from-absolute i))))))))
 #+nil
-(get-weeks-of-month (absolute-from-gregorian (make-date :year 2011 :month 7 :day 25)))
+(get-weeks-of-month (absolute-from-gregorian (make-date :year 2009 :month 3 :day 1)))
 #+nil
 (get-weeks-of-month 733377 )
