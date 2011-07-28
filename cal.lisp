@@ -462,19 +462,19 @@
 				:direction :output
 				:if-does-not-exist :create
 				:if-exists :supersede)
-	       (macrolet ((p (x y str &rest rest)
-			    `(format s ,(format nil "\\begin{textblock}{2}(~d,~d)~a\\end{textblock}"
-						x y str) ,@rest)))
+	       (flet ((p (x y str &rest rest)
+			(apply #'format s
+			       (format nil "\\begin{textblock}{2}(~d,~d)~a\\end{textblock}~%"
+				       x y str) rest)))
 		(format s "~a" *tex-preamble*)
-		(format s "\\begin{textblock}{2}(240,23)~2,'0d/~4d\\end{textblock}"
-			(mod m 12)
-			(+ 2008 (floor m 12)))
 		(p 240 23 "~2,'0d/~4d" (mod m 12) (+ 2008 (floor m 12)))
 		;; leave 1
-		(format s "\\begin{textblock}{2}(80,118)~a\\end{textblock}"
-			(if (aref hol m)
-			    (aref hol m)
-			    0))
+		(p 80 118 "~a" (if (aref hol m)
+				   (aref hol m)
+				   0))
+		(loop for j from 10 below 200 by 10 do
+		     (loop for i from 10 below 200 by 10 do
+			  (p i j "~d ~d" i j)))
 		(format s "~a" *tex-coda*))
 	       ))
 	(list hol work total-hol total-work
