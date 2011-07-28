@@ -277,7 +277,7 @@
 (defparameter *holiday-hash*
  (fill-hash-from-list (append (mapcar #'absolute-from-gregorian *bank-holidays*
 			       )  (expand-vacation))))
-
+#+nil
 (progn
   (format t "----~%")
   (loop for value being the hash-values of *holiday-hash*
@@ -453,6 +453,12 @@
 	(d (extract-day date)))
     (format nil "~4d-~2,'0d-~2,'0d" y m d)))
 
+(defun print-gregorian-british (date)
+  (let ((y (extract-year date))
+	(m (extract-month date))
+	(d (extract-day date)))
+    (format nil "~2,'0d/~2,'0d/~4d" d m y)))
+
 
 (defun distribute-weeks-into-months (weeks)
   (macrolet ((appendf (place ls)
@@ -486,7 +492,7 @@
 \\textblockorigin{10mm}{10mm} % start everything near the top-left corner
 \\setlength{\\parindent}{0pt}
 
-\\begin{document}
+\\begin{document}\\thispagestyle{empty}
 ")
 
 (defparameter *tex-coda*
@@ -563,9 +569,9 @@
 			(sumw 0))
 		    (loop for i below (length w) do
 			 ;; week and date of its sunday
-			 (p (+ 63 (* 33 i)) 68 "~d/~a" 
+			 (p (+ 63 (* 33 i)) 70 "{\\tiny Week ~d, ~a}" 
 			    (elt w i)
-			    (print-gregorian (gregorian-from-absolute
+			    (print-gregorian-british (gregorian-from-absolute
 					      (absolute-from-iso
 					       (make-iso-date :year y
 							      :week (elt w i)
@@ -584,9 +590,15 @@
 				    (get-hash-days dh y m (elt w i)))))
 			 
 			 ;; count months
-			 (p (+ 70 (* 32 i)) 140 "~a" (+ -7 m (* 12 (- y 2008))))
+			 (p (+ 70 (* 32 i)) 140 "~2,1f"
+			    (+ (* 1s0 (/ (1+ i) 
+					 (length
+					  (get-weeks-of-month
+					   (absolute-from-gregorian 
+					    (make-date :year y :month m :day 1))))))
+			       -7 m (* 12 (- y 2008))))
 			 
-			 ;; work package
+		       ;; work package
 			 (p (+ 70 (* 32 i)) 74 "~a.~a" (elt *work-package* (+ m (* 12 (- y 2008))))
 			    (1+ (random 3)))
 			 )
@@ -596,12 +608,12 @@
 		    (p 250 118 "~a" (* 7 sumh))
 
 		    ;; full total
-		    (p 250 132 "~a" (* 7 (+ sumw sumh)))
+		    (p 240 132 "~a/~a" (* 7 (+ sumw sumh))(* 7 (+ sumw sumh)))
 
 		    ;; actual/projected
 		    (p 250 143 "~a/~a" 
-		       (+ -7 m (* 12 (- y 2008)))
-		       (+ -7 m (* 12 (- y 2008))))
+		       (+ -6 m (* 12 (- y 2008)))
+		       (+ -6 m (* 12 (- y 2008))))
 		    )
 		  
 	      ;; rtd
@@ -676,14 +688,12 @@
 (defun get-hash-days (hash y m w)
   (let ((h (gethash (encode-key y m w) hash)))
     (if h h 0)))
-
-(defparameter *d* (fill-hash *weeks*))
-(defparameter *dh* (fill-hash *holweeks*))
+#+nil
 (loop for key being the hash-keys of *d* do
      (format t "~a~%" key)) 
 
 
-
+#+nil
 (progn
   (format t "----~%")
   (loop for value being the hash-values of *dh*
