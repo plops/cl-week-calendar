@@ -264,38 +264,72 @@
 	    (incf res (weeks-in-year j)))))
    res))
 
+#+nil
 (absolute-iso-week (make-iso-date :year 2008 :week 7 :day 3) 
 		   (make-iso-date :year 2010 :week 7 :day 3))
 
-(let ((start (absolute-from-gregorian (make-date :year 2008 :month 7 :day 10)))
-      (end (absolute-from-gregorian (make-date :year 2011 :month 7 :day 10)))
-      (j 0)
-      (bank-abs (mapcar #'absolute-from-gregorian *bank-holidays*))
-      (vac-abs (expand-vacation))
-      (weeks (make-array 157 :initial-element nil)))
-  (loop for i from start upto end do
-       (let ((iso (iso-from-absolute i)))
-	 (destructuring-bind (y w d type) iso
-	   (unless (or (= 7 d)
-		       (= 6 d)
-		       (member i bank-abs)
-		       (member i vac-abs))
-	     (push i
-		   (aref weeks (absolute-iso-week (iso-from-absolute start)
-						  iso)))))))
-  (loop for i below (length weeks) do
-       (let* ((months (mapcar #'(lambda (x) (second (gregorian-from-absolute x)))
-			      (reverse (aref weeks i))))
-	      (need-split (and months
-			       (some #'(lambda (x) (/= (first months) x)) months))))
-	 (if need-split
-	     (format t "~a~%~a~%" 
-		     (list (1+ i) 
-			   (find (first months) months))
-		     (list (1+ i) 
-			   (find (1+ (first months)) months)))
-	     (format t "~a~%" (list (1+ i) 
-				 months))))))
+#+nil
+(progn ; with-open-file 
+       #+nil (*standard-output* "/dev/shm/o.txt" :direction :output
+				:if-exists :supersede
+				:if-does-not-exist :create)
+ (let ((start (absolute-from-gregorian (make-date :year 2008 :month 7 :day 10)))
+       (end (absolute-from-gregorian (make-date :year 2011 :month 7 :day 10)))
+       (j 0)
+       (bank-abs (mapcar #'absolute-from-gregorian *bank-holidays*))
+       (vac-abs (expand-vacation))
+       (weeks (make-array 157 :initial-element nil))
+       (res nil))
+   (loop for i from start upto end do
+	(let ((iso (iso-from-absolute i)))
+	  (destructuring-bind (y w d type) iso
+	    (unless (or (= 7 d)
+			(= 6 d)
+			(member i bank-abs)
+			(member i vac-abs))
+	      (push i
+		    (aref weeks (absolute-iso-week (iso-from-absolute start)
+						   iso)))))))
+   (loop for i below (length weeks) do
+	(let* ((months (mapcar #'(lambda (x) (second (gregorian-from-absolute x)))
+			       (reverse (aref weeks i))))
+	       (need-split (and months
+				(some #'(lambda (x) (/= (first months) x)) months))))
+	  (flet ((q (ls)
+		   (* (/ 10s0) (round (* 10 (* 7 30 (/ 31s0) (length ls))))))
+		 (p (ls)
+		   (when ls
+		     (destructuring-bind (y m d ty) (gregorian-from-absolute (first ls))
+		       (format nil "~d-~2,'0d-~2,'0d" y m d)))))
+	    (if need-split
+		(progn
+		  (push (list (1+ i) 
+			      (first months)
+			      (p (aref weeks i))
+			      (q (loop for e in months when (= e (first months)) collect e)))
+			res)
+		  (push
+		   (list (1+ i) 
+			 (1+ (first months))
+			 (p (aref weeks i))
+			 (q (loop for e in months when (= e (1+ (first months))) collect e)))
+		   res))
+		(push (list (1+ i) 
+			    (first months)
+			    (p (aref weeks i))
+			    (q months))
+		      res)))))
+   (format t "~{~{ ~3d ~3d ~a ~2,1f ~}~%~}~%"(reverse res))
+   (defparameter *q* res)))
 
 (/ 660 682)
 (/ (* 7 30) 31)
+
+
+(* 660 7)
+
+#+nil
+(reduce #'+
+	(mapcar #'second *q*))
+
+;; its a 2.7hours more due to rounding
