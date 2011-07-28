@@ -12,12 +12,15 @@
   (list year month day 'gregorian))
 
 (defun extract-year (date)
+  (assert (gregorian-p date))
   (first date))
 
 (defun extract-month (date)
+  (assert (gregorian-p date))
   (second date))
 
 (defun extract-day (date)
+  (assert (gregorian-p date))
   (third date))
 
 (defun gregorian-p (date)
@@ -31,6 +34,20 @@
 
 (defun iso-p (date)
   (eq 'iso (fourth date)))
+
+
+(defun extract-iso-year (date)
+  (assert (iso-p date))
+  (first date))
+
+(defun extract-iso-week (date)
+  (assert (iso-p date))
+  (second date))
+
+(defun extract-iso-day (date)
+  (assert (iso-p date))
+  (third date))
+
 
 
 (defmacro sum (expression index initial condition)
@@ -396,11 +413,19 @@
 				       (/= w e))) w))
 	  (let ((iso (iso-from-absolute d)))
 	    (destructuring-bind (y w d ty) iso
-	      (gregorian-from-absolute (absolute-from-iso (make-iso-date :year y
-									 :week w
-									 :day 5)))))))))
+	      (list w
+		    (gregorian-from-absolute (absolute-from-iso (make-iso-date :year y
+									       :week w
+									       :day 5))))))))))
 #+nil
 (find-week-and-friday (aref *workr* 7))
+
+(defun print-gregorian (date)
+  (let ((y (extract-year date))
+	(m (extract-month date))
+	(d (extract-day date)))
+    (format nil "~4d-~2,'0d-~2,'0d" y m d)))
+
 
 (defun distribute-weeks-into-months (weeks)
   (macrolet ((appendf (place ls)
@@ -482,15 +507,27 @@
 				:if-exists :supersede)
 	       (flet ((p (x y str &rest rest)
 			(apply #'format s
-			       (format nil "\\begin{textblock}{2}(~d,~d)~a\\end{textblock}~%"
+			       (format nil "\\begin{textblock}{100}(~d,~d)~a\\end{textblock}~%"
 				       x y str) rest)))
 		(format s "~a" *tex-preamble*)
-		(p 240 23 "~2,'0d/~4d" (mod m 12) (+ 2008 (floor m 12)))
+		(let* ((day (second (first (if (elt workr m)
+					       (elt workr m)
+					       (elt holr m)))))
+		       (g (gregorian-from-absolute day)))
+		  (p 240 23 "~2,'0d/~4d" (extract-month g)
+		     (extract-year g)))
 		(defparameter *workr* workr)
 		;; wk
-		(let ((weeks (elt workr m)))
-		  (loop for i below (length weeks) do
-		       (p (+ 70 (* 32 i)) 70 "~a" (first (last (elt weeks i))))))
+		(let ((w (find-week-and-friday (elt workr m))))
+		  (loop for i below (length w) do
+		       (p (+ 63 (* 33 i)) 68 "~d/{\\tiny~a}" 
+			  (first (elt w i))
+			  (print-gregorian (second (elt w i))))))
+		(let ((w (find-week-and-friday (elt holr m))))
+		  (loop for i below (length w) do
+		       (p (+ 63 (* 33 i)) 68 "~d/{\\tiny~a}" 
+			  (first (elt w i))
+			  (print-gregorian (second (elt w i))))))
 		(defparameter *work* work)
 
 		;; rtd
@@ -516,6 +553,9 @@
 			  (p i j "~d,~d" i j)))
 		(format s "~a" *tex-coda*))
 	       ))
+	(format t "----~%")
+	(loop for i below (length hol) do
+	     (format t "~d: ~a ~a~%" i (elt work i) (elt hol i)))
 	(list hol work total-hol total-work
 	      holr (loop for e across workr collect 
 			(let ((q (first (last e))))
@@ -524,3 +564,16 @@
 			      (list w d (gregorian-from-absolute d)))))))))))
 
 
+(defun get-weeks-of-month (abs-day)
+  (let* ((g (gregorian-from-absolute abs-day)))
+    (destructuring-bind (y m d ty) g
+      (let ((start (iso-from-absolute
+		    (absolute-from-gregorian (make-date :year y :month m :day 1))))
+	    (end (iso-from-absolute 
+		  (absolute-from-gregorian 
+		   (make-date 
+		    :year y :month m :day (last-day-of-gregorian-month m y))))))
+	(loop for i from (extract-iso-week start) upto (extract-iso-week end) collect
+	     i)))))
+#+nil
+(get-weeks-of-month (absolute-from-gregorian (make-date :year 2011 :month 7 :day 25)))
