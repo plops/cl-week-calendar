@@ -371,59 +371,50 @@
     (or (= 7 d)
 	(= 6 d))))
 
+(defun martin-project-month (abs-date)
+  (let* ((g (gregorian-from-absolute abs-date))
+	 (y (extract-year g))
+	 (m (extract-month g)))
+    (+ m (* 12 (- y 2008)))))
+
 #+nil
 (let ((start (absolute-from-gregorian (make-date :year 2008 :month 7 :day 10)))
       (end (absolute-from-gregorian (make-date :year 2011 :month 7 :day 10)))
       (bank-abs (mapcar #'absolute-from-gregorian *bank-holidays*))
       (weeks (make-array 157 :initial-element nil))
-      (holweeks (make-array 157 :initial-element nil))
-      (res nil))
+      (holweeks (make-array 157 :initial-element nil)))
   ;; put all working days into weeks
+  ;; and all holidays and bank holidays into holweeks 
   (loop for i from start upto end do
        (let ((iso (iso-from-absolute i)))
-	 (destructuring-bind (y w d type) iso
-	   (unless (or (weekend-p i) ;; remove weekends, bankholidays and holidays
-		       (member i bank-abs)
-		       (simple-holiday-p i))
-	     (push i
-		    (aref weeks (absolute-iso-week (iso-from-absolute start)
-						   iso))))
-	   (when (and (simple-holiday-p i)
-		      (not (weekend-p i)))
-	     (push i (aref holweeks (absolute-iso-week (iso-from-absolute start)
-						       iso)))))))
-  (loop for i below (length
-		     holweeks) do
+	 (unless (or (weekend-p i) ;; remove weekends, bankholidays and holidays
+		     (member i bank-abs)
+		     (simple-holiday-p i))
+	   (push i
+		 (aref weeks (absolute-iso-week (iso-from-absolute start)
+						iso))))
+	 (when (and (simple-holiday-p i)
+		    (not (weekend-p i)))
+	   (push i (aref holweeks (absolute-iso-week (iso-from-absolute start)
+						     iso))))))
+  ;; for each month list all contained weeks (partial weeks will appear in two months)
+  ;; track week number (I guess they want the ISO week) and the gregorian ending day (friday)
+  ;; work package ref
+  ;; rtd and annual leave
+  ;; total (rtd+annual leave)
+  #+nil
+  (loop for i below (length holweeks) do
        (format t "~a~%" (list (length (reverse (aref weeks i)))
 			      (length (reverse (aref holweeks i))))))
-#+nil  (loop for i below (length weeks) do
-       (let* ((months (mapcar #'(lambda (x) (extract-month (gregorian-from-absolute x)))
-			      (reverse (aref weeks i))))
-	      (need-split (and months
-			       (some #'(lambda (x) (/= (first months) x)) months))))
-	  (flet ((q (ls)
-		   (* (/ 10s0) (round (* 10 (* 7 30 (/ 31s0) (length ls))))))
-		 (p (ls)
-		   (when ls
-		     (destructuring-bind (y m d ty) (gregorian-from-absolute (first ls))
-		       (format nil "~d-~2,'0d-~2,'0d" y m d)))))
-	    (if need-split
-		(progn
-		  (push (list (1+ i) 
-			      (first months)
-			      (p (aref weeks i))
-			      (q (loop for e in months when (= e (first months)) collect e)))
-			res)
-		  (push
-		   (list (1+ i) 
-			 (1+ (first months))
-			 (p (aref weeks i))
-			 (q (loop for e in months when (= e (1+ (first months))) collect e)))
-		   res))
-		(push (list (1+ i) 
-			    (first months)
-			    (p (aref weeks i))
-			    (q months))
-		      res)))))
-   #+nil(format t "~{~{ ~3d ~3d ~a ~2,1f ~}~%~}~%"(reverse res))
- #+nil  (defparameter *q* res))
+  
+  
+  (macrolet ((appendf (place ls)
+	       `(setf ,place (append ,place ,ls))))
+   (let ((month-res (make-array (* 12 4) 
+				:initial-element nil)))
+     (loop for w below (length weeks) do
+	  (dolist (d (reverse (aref holweeks w)))
+	    (appendf (aref month-res (martin-project-month d))
+		     (list (list w d)))))
+     month-res)))
+
