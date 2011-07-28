@@ -268,6 +268,8 @@
 (absolute-iso-week (make-iso-date :year 2008 :week 7 :day 3) 
 		   (make-iso-date :year 2010 :week 7 :day 3))
 
+;; here i tried to put my real holidays in, but i didn't take enough
+;; and it makes everything really complicated
 #+nil
 (progn ; with-open-file 
        #+nil (*standard-output* "/dev/shm/o.txt" :direction :output
@@ -333,3 +335,95 @@
 	(mapcar #'second *q*))
 
 ;; its a 2.7hours more due to rounding
+
+(defun years-bank-holidays (year)
+ (remove-if #'(lambda (x) (/= year (extract-year x))) *bank-holidays*))
+
+
+;; the goal is: distribute 220 working days into 3 years from 10 jul
+;; 2008 on. 41 annual leave (containing 8 bank holidays) put the rest
+;; in december..january because this is the only time with compulsary
+;; holiday
+;; now i have to create 33 more holidays
+
+;; there are always two bank holidays at the end of december and one
+;; on the start of january
+
+;; 23 days in december
+;; 13 days in january (in 2011 move 23 days there from december)
+
+(defun simple-holiday-p (abs-date)
+  (destructuring-bind (y w d type) (iso-from-absolute abs-date)
+    (declare (ignore type))
+    (or (<= (+ d (* w 7)) ;; holiday in january
+	    (if (= y 2011) 
+		13
+		(+ 13 23)))
+	(<= (- (absolute-from-gregorian ;; holiday in december
+			       (make-date :year y  
+					  :month 12
+					  :day 31))
+			      23) abs-date))))
+
+(defun weekend-p (abs-date)
+  (destructuring-bind (y w d type) (iso-from-absolute abs-date)
+    (declare (ignore type y w))
+    (or (= 7 d)
+	(= 6 d))))
+
+#+nil
+(let ((start (absolute-from-gregorian (make-date :year 2008 :month 7 :day 10)))
+      (end (absolute-from-gregorian (make-date :year 2011 :month 7 :day 10)))
+      (bank-abs (mapcar #'absolute-from-gregorian *bank-holidays*))
+      (weeks (make-array 157 :initial-element nil))
+      (holweeks (make-array 157 :initial-element nil))
+      (res nil))
+  ;; put all working days into weeks
+  (loop for i from start upto end do
+       (let ((iso (iso-from-absolute i)))
+	 (destructuring-bind (y w d type) iso
+	   (unless (or (weekend-p i) ;; remove weekends, bankholidays and holidays
+		       (member i bank-abs)
+		       (simple-holiday-p i))
+	     (push i
+		    (aref weeks (absolute-iso-week (iso-from-absolute start)
+						   iso))))
+	   (when (and (simple-holiday-p i)
+		      (not (weekend-p i)))
+	     (push i (aref holweeks (absolute-iso-week (iso-from-absolute start)
+						       iso)))))))
+  (loop for i below (length
+		     holweeks) do
+       (format t "~a~%" (list (length (reverse (aref weeks i)))
+			      (length (reverse (aref holweeks i))))))
+#+nil  (loop for i below (length weeks) do
+       (let* ((months (mapcar #'(lambda (x) (extract-month (gregorian-from-absolute x)))
+			      (reverse (aref weeks i))))
+	      (need-split (and months
+			       (some #'(lambda (x) (/= (first months) x)) months))))
+	  (flet ((q (ls)
+		   (* (/ 10s0) (round (* 10 (* 7 30 (/ 31s0) (length ls))))))
+		 (p (ls)
+		   (when ls
+		     (destructuring-bind (y m d ty) (gregorian-from-absolute (first ls))
+		       (format nil "~d-~2,'0d-~2,'0d" y m d)))))
+	    (if need-split
+		(progn
+		  (push (list (1+ i) 
+			      (first months)
+			      (p (aref weeks i))
+			      (q (loop for e in months when (= e (first months)) collect e)))
+			res)
+		  (push
+		   (list (1+ i) 
+			 (1+ (first months))
+			 (p (aref weeks i))
+			 (q (loop for e in months when (= e (1+ (first months))) collect e)))
+		   res))
+		(push (list (1+ i) 
+			    (first months)
+			    (p (aref weeks i))
+			    (q months))
+		      res)))))
+   #+nil(format t "~{~{ ~3d ~3d ~a ~2,1f ~}~%~}~%"(reverse res))
+ #+nil  (defparameter *q* res))

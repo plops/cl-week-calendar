@@ -1,0 +1,18 @@
+\documentclass[landscape]{scrartcl}
+\usepackage{pdfpages}
+\usepackage[absolute]{textpos} 
+
+\setlength{\TPHorizModule}{1mm}
+\setlength{\TPVertModule}{\TPHorizModule}
+\textblockorigin{10mm}{10mm} % start everything near the top-left corner
+\setlength{\parindent}{0pt}
+
+\begin{document}
+
+\begin{textblock}{2}(240,23)07/2008\end{textblock}
+\begin{textblock}{2}(80,125)27\end{textblock}
+\begin{textblock}{2}(80,131.4)27\end{textblock}
+
+\includepdf{timesheet.pdf}
+
+\end{document}
